@@ -114,7 +114,8 @@ def expr2sys(sympy_expr: sp.Basic, var: sp.Basic, tf=None
         tf = str(var)
     if isinstance(tf, str):
         tf = control.matlab.tf(tf)
-    return sp.lambdify([var], sympy_expr)(tf)
+    one = tf*0+1
+    return one*sp.lambdify([var], sympy_expr)(tf)
 
 def sys2expr(
     siso_sys: control.TransferFunction,
