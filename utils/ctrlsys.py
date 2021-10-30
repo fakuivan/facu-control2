@@ -9,7 +9,7 @@ import cmath
 from .ratpolys import ratpoly_coeffs
 from .misc import interweave, concat, map_kwargs_dec, last_same
 from .mpl import shade_outside, no_scaling
-from typing import Any, Callable, Sequence
+from typing import Any, Sequence, TypeVar, Type
 from functools import partial
 from matplotlib import pyplot as plt
 from operator import sub
@@ -245,20 +245,47 @@ def autotune(
 def feedforward(plant, controller, sensor=1, sign=-1):
     return (plant+plant*controller)/(1-sign*controller*plant*sensor)
 
+from .ratpolys import ratpoly_inv
+
+T=TypeVar("T")
+def numden2delays(
+    num: Sequence[T],
+    den: Sequence[T]
+) -> tuple[dict[int, T], dict[int, T]]:
+    """
+    For any rational polynomial on the delay operator with
+    numerator `num` and denominator `den`, this function returns
+    a pair where the elements are mappings of the type delay->gain.
+    The first element in the pair corresponds to the mapping for the
+    denominator function (the input of the system) and the second
+    to the numerator function (the output of the system).
+    """
+    inum, iden = ratpoly_inv(num, den)
+    #inum, iden = num, den
+    # inum = [a_n*z**-n, ..., a_2*z**-2, a_1*z**-1, a_0*z**0]
+    # inum = [b_n*z**-n, ..., b_2*z**-2, b_1*z**-1, b_0*z**0]
+    b0, *b_rest = reversed(iden)
+    a_n = reversed(inum)
+    return (
+        {delay: -gain/b0 for delay, gain in enumerate(b_rest, start=1)},
+        {delay: gain/b0 for delay, gain in enumerate(a_n)}
+    )
+
+T=TypeVar("T")
 def difference_eq(
-    num: Sequence,
-    den: Sequence,
-    in_: Callable,
-    out: Callable,
-    k, eq=sp.Eq):
+    num: Sequence[sp.Basic],
+    den: Sequence[sp.Basic],
+    in_: sp.Function,
+    out: sp.Function,
+    k: sp.Basic, eq: Type[T]=sp.Eq) -> T:
     """
     For a discrete time transfer function `out/in_` with
     numerator and denominator `num` and `den` respectively in the z
     domain, returns the difference equation expression of
     variable `k`
     """
-    den_offset = len(num)-len(den)
-    a0, *den_tail = den
-    sum_in = sum(a*in_(k-i+den_offset) for i, a in enumerate(num))
-    sum_out = sum(a*out(k-i-1) for i, a in enumerate(den_tail))
-    return eq(out(k), (sum_in-sum_out)/a0)
+    outs, ins = numden2delays(num, den)
+    return eq(out(k), sum(
+        sum(gain*f(k-delay) for delay, gain in maps.items())
+        for f, maps in ((out, outs), (in_, ins))
+    ))
