@@ -9,11 +9,9 @@ import cmath
 from .ratpolys import ratpoly_coeffs
 from .misc import interweave, concat, map_kwargs_dec, last_same
 from .mpl import shade_outside, no_scaling
-from typing import Any, Sequence, TypeVar, Type
+from typing import Any, Callable, Sequence, TypeVar, Type
 from functools import partial
 from matplotlib import pyplot as plt
-from operator import sub
-from itertools import starmap
 import scipy.optimize
 
 """
@@ -213,6 +211,13 @@ def feedback(direct, sensing):
 def feedback3(plant, controller, sensing):
     return feedback(plant*controller, sensing)
 
+
+ControllerConfig = Callable[[
+    TransferFunction,   # Plant
+    TransferFunction,   # Controller
+    TransferFunction    # Sensing
+], TransferFunction]
+
 def autotune(
     vars: dict[sp.Basic, float],
     f_symb: sp.Basic,
@@ -221,14 +226,18 @@ def autotune(
     mp: float, ts: float,
     gp_tf: TransferFunction,
     gh_tf: TransferFunction,
-    config=feedback3,
-    solver=scipy.optimize.newton_krylov, **solver_kwargs):
+    config: ControllerConfig=feedback3,
+    solver=scipy.optimize.root,
+    as_dict=False,
+    return_optimize_result=False,
+    **solver_kwargs):
     """
     Tunes a controller with a symbolic representation of `gc`
     to drive the plant `gp_tf` with sensor `gh_tf` for a
     specific settling time and percentage overshoot.
     """
-    gcf = sp.lambdify([f_symb, *vars.keys()], gc)
+    syms, inits = zip(*vars.items())
+    gcf = sp.lambdify([f_symb, *syms], gc)
     
     def get_perf(_, t, r):
         perf = ctrl.matlab.stepinfo(r, T=t)
@@ -242,7 +251,15 @@ def autotune(
         return calc_params(
             config(gp_tf, gcf(f_tf, *params), gh_tf).minreal())
 
-    return solver(objective, [*vars.values()], **solver_kwargs)
+    res = solver(objective, inits, **solver_kwargs)
+    sol = res.x
+    with_result = (lambda sol: sol
+        ) if not return_optimize_result else (
+            lambda sol: (res, sol))
+    if not as_dict:
+        return with_result(sol)
+    
+    return with_result(dict(zip(syms, sol)))
 
 def feedforward(plant, controller, sensor=1, sign=-1):
     return (plant+plant*controller)/(1-sign*controller*plant*sensor)
