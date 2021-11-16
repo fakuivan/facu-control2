@@ -109,10 +109,4 @@ def nu_sharex_axes(
     set_y2label = nu_axis(
         ax2.yaxis, basis, y2unit, is_x=False, in_db=y2_in_db
     )
-    # Old implementation, the x axis has already been transformed
-    #my_nu_ax = lambda ax, yunit, y_in_db: nu_axes(
-    #    basis, ax, xunit, yunit, x_in_db=x_in_db, y_in_db=y_in_db)
-    #set_xlabel, set_y1label = my_nu_ax(
-    #    ax1, y1unit, y_in_db=y1_in_db)
-    #_, set_y2label = my_nu_ax(ax2, y2unit, y_in_db=y2_in_db)
     return set_xlabel, set_y1label, set_y2label
