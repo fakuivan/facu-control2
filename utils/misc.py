@@ -133,10 +133,16 @@ def np_map(f, *arrs, depth=1, dtype=None):
     f = partial(np_map, f, depth=depth-1, dtype=dtype) if depth > 1 else f
     return np.array([f(*x) for x in unzip(arrs)], dtype=dtype)
 
-def valmap(f, dict_):
+K = TypeVar("K")
+V = TypeVar("V")
+T = TypeVar("T")
+def valmap(f: Callable[[V], T], dict_: dict[K, V]) -> dict[K, T]:
     return {k: f(v) for k, v in dict_.items()}
 
-def keymap(f, dict_):
+K = TypeVar("K")
+V = TypeVar("V")
+T = TypeVar("T")
+def keymap(f: Callable[[K], T], dict_: dict[K, V]) -> dict[T, V]:
     return {f(k): v for k, v in dict_.items()}
 
 def last_same(arr):
