@@ -201,8 +201,10 @@ def settling_time(t, y, yfinal, prop=.02):
 def sys_terr_calc(f, *params, resp=ctrl.step_response):
     def get_params(sys):
         t, r = resp(sys)
-        return list(
-            starmap(sub, zip(params, f(sys, t, r))))
+        return np.array(
+            [float(param-res)
+                for param, res in
+                zip(params, f(sys, t, r))])
     return get_params
 
 def feedback(direct, sensing):
